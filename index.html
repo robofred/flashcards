@@ -33,6 +33,10 @@
             background: rgba(0, 0, 0, 0.5);
             padding: 5px;
         }
+        #error {
+            color: red;
+            margin-top: 10px;
+        }
     </style>
 </head>
 <body>
@@ -42,42 +46,49 @@
         <canvas id="canvasOutput"></canvas>
         <div id="direction"></div>
     </div>
+    <div id="error"></div>
 
-    <!-- Load OpenCV.js from CDN -->
-    <script src="https://docs.opencv.org/4.5.2/opencv.js" onload="onOpenCvReady();" type="text/javascript"></script>
-
+    <!-- JavaScript code before loading OpenCV.js -->
     <script type="text/javascript">
         let video;
         let prevFrame = null;
         let prevCenter = null;
 
-        // Wait for OpenCV.js to load
+        function onOpenCvError() {
+            console.error("Failed to load OpenCV.js");
+            document.getElementById('error').innerText = "Error: Could not load OpenCV.js. Check your internet connection.";
+        }
+
         function onOpenCvReady() {
             console.log('OpenCV.js is ready');
+            document.getElementById('error').innerText = "";
             startCamera();
         }
 
-        // Start the webcam feed
         function startCamera() {
+            console.log("Starting camera...");
             video = document.createElement('video');
-            video.width = 640;
-            video.height = 480;
+            video.width = 320;  // Reduced resolution for better performance
+            video.height = 240;
             video.autoplay = true;
 
             navigator.mediaDevices.getUserMedia({ video: true, audio: false })
                 .then(stream => {
+                    console.log("Webcam stream started");
                     video.srcObject = stream;
-                    video.play();
-                    processVideo();
+                    video.onloadedmetadata = () => {
+                        video.play();
+                        processVideo();
+                    };
                 })
                 .catch(err => {
                     console.error("Error accessing webcam: ", err);
-                    alert("Could not access webcam. Please allow camera permissions.");
+                    document.getElementById('error').innerText = `Error: Could not access webcam - ${err.message}. Allow camera permissions and refresh.`;
                 });
         }
 
-        // Process video frames
         function processVideo() {
+            console.log("Processing video...");
             let canvas = document.getElementById('canvasOutput');
             let ctx = canvas.getContext('2d');
             canvas.width = video.width;
@@ -88,85 +99,77 @@
             let thresh = new cv.Mat();
 
             function detectMotion() {
-                // Capture frame from video
-                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-                src.data.set(ctx.getImageData(0, 0, canvas.width, canvas.height).data);
+                try {
+                    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                    src.data.set(ctx.getImageData(0, 0, canvas.width, canvas.height).data);
 
-                // Convert to grayscale and blur
-                cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
-                cv.GaussianBlur(gray, gray, new cv.Size(21, 21), 0);
+                    cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
+                    cv.GaussianBlur(gray, gray, new cv.Size(21, 21), 0);
 
-                if (prevFrame === null) {
-                    prevFrame = gray.clone();
-                    requestAnimationFrame(detectMotion);
-                    return;
-                }
-
-                // Frame differencing
-                cv.absdiff(prevFrame, gray, thresh);
-                cv.threshold(thresh, thresh, 30, 255, cv.THRESH_BINARY);
-                cv.dilate(thresh, thresh, new cv.Mat(), new cv.Point(-1, -1), 2);
-
-                // Find contours
-                let contours = new cv.MatVector();
-                let hierarchy = new cv.Mat();
-                cv.findContours(thresh, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
-
-                let direction = "";
-                if (contours.size() > 0) {
-                    // Get largest contour
-                    let maxContour = contours.get(0);
-                    for (let i = 1; i < contours.size(); i++) {
-                        if (cv.contourArea(contours.get(i)) > cv.contourArea(maxContour)) {
-                            maxContour = contours.get(i);
-                        }
+                    if (prevFrame === null) {
+                        prevFrame = gray.clone();
+                        requestAnimationFrame(detectMotion);
+                        return;
                     }
 
-                    if (cv.contourArea(maxContour) > 500) {
-                        // Calculate center of mass
-                        let moments = cv.moments(maxContour);
-                        let centerX = moments.m10 / moments.m00;
-                        let centerY = moments.m01 / moments.m00;
+                    cv.absdiff(prevFrame, gray, thresh);
+                    cv.threshold(thresh, thresh, 30, 255, cv.THRESH_BINARY);
+                    cv.dilate(thresh, thresh, new cv.Mat(), new cv.Point(-1, -1), 2);
 
-                        // Draw bounding rect and center
-                        let rect = cv.boundingRect(maxContour);
-                        cv.rectangle(src, new cv.Point(rect.x, rect.y), 
-                                     new cv.Point(rect.x + rect.width, rect.y + rect.height), 
-                                     [0, 255, 0, 255], 2);
-                        cv.circle(src, new cv.Point(centerX, centerY), 5, [0, 0, 255, 255], -1);
+                    let contours = new cv.MatVector();
+                    let hierarchy = new cv.Mat();
+                    cv.findContours(thresh, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
 
-                        // Detect direction
-                        if (prevCenter !== null) {
-                            if (centerX < prevCenter[0] - 10) {
-                                direction = "Moving Left";
-                            } else if (centerX > prevCenter[0] + 10) {
-                                direction = "Moving Right";
+                    let direction = "";
+                    if (contours.size() > 0) {
+                        let maxContour = contours.get(0);
+                        for (let i = 1; i < contours.size(); i++) {
+                            if (cv.contourArea(contours.get(i)) > cv.contourArea(maxContour)) {
+                                maxContour = contours.get(i);
                             }
                         }
-                        prevCenter = [centerX, centerY];
+
+                        if (cv.contourArea(maxContour) > 500) {
+                            let moments = cv.moments(maxContour);
+                            let centerX = moments.m10 / moments.m00;
+                            let centerY = moments.m01 / moments.m00;
+
+                            // Fixed: Define rect before using it
+                            let rect = cv.boundingRect(maxContour);
+                            cv.rectangle(src, new cv.Point(rect.x, rect.y), 
+                                        new cv.Point(rect.x + rect.width, rect.y + rect.height), 
+                                        [0, 255, 0, 255], 2);
+                            cv.circle(src, new cv.Point(centerX, centerY), 5, [0, 0, 255, 255], -1);
+
+                            if (prevCenter !== null) {
+                                if (centerX < prevCenter[0] - 10) {
+                                    direction = "Moving Left";
+                                } else if (centerX > prevCenter[0] + 10) {
+                                    direction = "Moving Right";
+                                }
+                            }
+                            prevCenter = [centerX, centerY];
+                        }
                     }
+
+                    document.getElementById('direction').innerText = direction;
+                    cv.imshow('canvasOutput', src);
+
+                    prevFrame.delete();
+                    prevFrame = gray.clone();
+
+                    contours.delete();
+                    hierarchy.delete();
+                } catch (e) {
+                    console.error("Error in motion detection: ", e);
+                    document.getElementById('error').innerText = `Error: ${e.message}`;
                 }
-
-                // Display direction
-                document.getElementById('direction').innerText = direction;
-
-                // Show processed frame
-                cv.imshow('canvasOutput', src);
-
-                // Update previous frame
-                prevFrame.delete();
-                prevFrame = gray.clone();
-
-                // Clean up
-                contours.delete();
-                hierarchy.delete();
 
                 requestAnimationFrame(detectMotion);
             }
 
             requestAnimationFrame(detectMotion);
 
-            // Clean up on exit
             window.onunload = () => {
                 src.delete();
                 gray.delete();
@@ -175,5 +178,8 @@
             };
         }
     </script>
+
+    <!-- Load OpenCV.js from CDN -->
+    <script src="https://docs.opencv.org/4.x/opencv.js" onload="onOpenCvReady();" onerror="onOpenCvError();" type="text/javascript"></script>
 </body>
 </html>
