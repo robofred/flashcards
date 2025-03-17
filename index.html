@@ -1,141 +1,179 @@
-import React, { useState, useEffect } from 'react';
-
-const MultiplicationFlashCards = () => {
-  const [availableNumbers, setAvailableNumbers] = useState([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
-  const [currentProblem, setCurrentProblem] = useState({ num1: 0, num2: 0 });
-  const [options, setOptions] = useState([]);
-  const [streak, setStreak] = useState(0);
-  const [showSettings, setShowSettings] = useState(false);
-  
-  // Generate a new problem
-  const generateProblem = () => {
-    if (availableNumbers.length === 0) return;
-    
-    const num1 = availableNumbers[Math.floor(Math.random() * availableNumbers.length)];
-    const num2 = availableNumbers[Math.floor(Math.random() * availableNumbers.length)];
-    
-    setCurrentProblem({ num1, num2 });
-    
-    // Generate 4 options including the correct answer
-    const correctAnswer = num1 * num2;
-    const newOptions = [correctAnswer];
-    
-    // Generate 3 unique wrong answers
-    while (newOptions.length < 4) {
-      const wrongNum1 = Math.floor(Math.random() * 10);
-      const wrongNum2 = Math.floor(Math.random() * 10);
-      const wrongAnswer = wrongNum1 * wrongNum2;
-      
-      if (!newOptions.includes(wrongAnswer) && wrongAnswer !== correctAnswer) {
-        newOptions.push(wrongAnswer);
-      }
-    }
-    
-    // Shuffle the options
-    setOptions(newOptions.sort(() => Math.random() - 0.5));
-  };
-  
-  // Initialize the game
-  useEffect(() => {
-    generateProblem();
-  }, [availableNumbers]);
-  
-  // Handle answer selection
-  const handleAnswer = (selectedAnswer) => {
-    const correctAnswer = currentProblem.num1 * currentProblem.num2;
-    
-    if (selectedAnswer === correctAnswer) {
-      setStreak(streak + 1);
-      generateProblem();
-    } else {
-      setStreak(0);
-    }
-  };
-  
-  // Handle shuffle button
-  const handleShuffle = () => {
-    setStreak(0);
-    generateProblem();
-  };
-  
-  // Handle number toggle in settings
-  const toggleNumber = (num) => {
-    if (availableNumbers.includes(num)) {
-      setAvailableNumbers(availableNumbers.filter(n => n !== num));
-    } else {
-      setAvailableNumbers([...availableNumbers, num].sort((a, b) => a - b));
-    }
-  };
-  
-  return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-blue-50 p-4">
-      <div className="w-full max-w-md bg-white rounded-lg shadow-lg p-6">
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold text-blue-600">Multiplication Flash Cards</h1>
-          <div className="text-lg font-semibold bg-green-100 px-3 py-1 rounded-full">
-            Streak: {streak}
-          </div>
-        </div>
-        
-        {/* Flash Card */}
-        <div className="bg-blue-100 rounded-lg p-8 mb-6 text-center">
-          <div className="text-4xl font-bold text-blue-800">
-            {currentProblem.num1} × {currentProblem.num2} = ?
-          </div>
-        </div>
-        
-        {/* Answer Options */}
-        <div className="grid grid-cols-2 gap-4 mb-6">
-          {options.map((option, index) => (
-            <button
-              key={index}
-              onClick={() => handleAnswer(option)}
-              className="bg-blue-500 hover:bg-blue-600 text-white text-xl font-semibold py-3 rounded-lg transition-colors"
-            >
-              {option}
-            </button>
-          ))}
-        </div>
-        
-        {/* Menu */}
-        <div className="flex flex-col space-y-4">
-          <button
-            onClick={handleShuffle}
-            className="bg-yellow-500 hover:bg-yellow-600 text-white font-semibold py-2 rounded-lg transition-colors"
-          >
-            Shuffle
-          </button>
-          
-          <button
-            onClick={() => setShowSettings(!showSettings)}
-            className="bg-gray-500 hover:bg-gray-600 text-white font-semibold py-2 rounded-lg transition-colors"
-          >
-            {showSettings ? 'Hide Settings' : 'Settings'}
-          </button>
-          
-          {/* Settings Panel */}
-          {showSettings && (
-            <div className="bg-gray-100 rounded-lg p-4 mt-4">
-              <h3 className="font-semibold mb-2">Choose Numbers:</h3>
-              <div className="flex flex-wrap gap-2">
-                {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
-                  <label key={num} className="flex items-center space-x-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={availableNumbers.includes(num)}
-                      onChange={() => toggleNumber(num)}
-                      className="form-checkbox h-5 w-5 text-blue-600"
-                    />
-                    <span>{num}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Motion Detection with OpenCV.js</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            background-color: #f0f0f0;
+            margin: 0;
+            padding: 20px;
+        }
+        h1 {
+            color: #333;
+        }
+        #container {
+            position: relative;
+            display: inline-block;
+        }
+        canvas {
+            border: 2px solid #333;
+            max-width: 100%;
+        }
+        #direction {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: green;
+            font-size: 20px;
+            font-weight: bold;
+            background: rgba(0, 0, 0, 0.5);
+            padding: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Motion Detection</h1>
+    <p>Move left or right in front of your camera!</p>
+    <div id="container">
+        <canvas id="canvasOutput"></canvas>
+        <div id="direction"></div>
     </div>
-  );
-};
 
-export default MultiplicationFlashCards;
+    <!-- Load OpenCV.js from CDN -->
+    <script src="https://docs.opencv.org/4.5.2/opencv.js" onload="onOpenCvReady();" type="text/javascript"></script>
+
+    <script type="text/javascript">
+        let video;
+        let prevFrame = null;
+        let prevCenter = null;
+
+        // Wait for OpenCV.js to load
+        function onOpenCvReady() {
+            console.log('OpenCV.js is ready');
+            startCamera();
+        }
+
+        // Start the webcam feed
+        function startCamera() {
+            video = document.createElement('video');
+            video.width = 640;
+            video.height = 480;
+            video.autoplay = true;
+
+            navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+                .then(stream => {
+                    video.srcObject = stream;
+                    video.play();
+                    processVideo();
+                })
+                .catch(err => {
+                    console.error("Error accessing webcam: ", err);
+                    alert("Could not access webcam. Please allow camera permissions.");
+                });
+        }
+
+        // Process video frames
+        function processVideo() {
+            let canvas = document.getElementById('canvasOutput');
+            let ctx = canvas.getContext('2d');
+            canvas.width = video.width;
+            canvas.height = video.height;
+
+            let src = new cv.Mat(video.height, video.width, cv.CV_8UC4);
+            let gray = new cv.Mat();
+            let thresh = new cv.Mat();
+
+            function detectMotion() {
+                // Capture frame from video
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                src.data.set(ctx.getImageData(0, 0, canvas.width, canvas.height).data);
+
+                // Convert to grayscale and blur
+                cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
+                cv.GaussianBlur(gray, gray, new cv.Size(21, 21), 0);
+
+                if (prevFrame === null) {
+                    prevFrame = gray.clone();
+                    requestAnimationFrame(detectMotion);
+                    return;
+                }
+
+                // Frame differencing
+                cv.absdiff(prevFrame, gray, thresh);
+                cv.threshold(thresh, thresh, 30, 255, cv.THRESH_BINARY);
+                cv.dilate(thresh, thresh, new cv.Mat(), new cv.Point(-1, -1), 2);
+
+                // Find contours
+                let contours = new cv.MatVector();
+                let hierarchy = new cv.Mat();
+                cv.findContours(thresh, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+
+                let direction = "";
+                if (contours.size() > 0) {
+                    // Get largest contour
+                    let maxContour = contours.get(0);
+                    for (let i = 1; i < contours.size(); i++) {
+                        if (cv.contourArea(contours.get(i)) > cv.contourArea(maxContour)) {
+                            maxContour = contours.get(i);
+                        }
+                    }
+
+                    if (cv.contourArea(maxContour) > 500) {
+                        // Calculate center of mass
+                        let moments = cv.moments(maxContour);
+                        let centerX = moments.m10 / moments.m00;
+                        let centerY = moments.m01 / moments.m00;
+
+                        // Draw bounding rect and center
+                        let rect = cv.boundingRect(maxContour);
+                        cv.rectangle(src, new cv.Point(rect.x, rect.y), 
+                                     new cv.Point(rect.x + rect.width, rect.y + rect.height), 
+                                     [0, 255, 0, 255], 2);
+                        cv.circle(src, new cv.Point(centerX, centerY), 5, [0, 0, 255, 255], -1);
+
+                        // Detect direction
+                        if (prevCenter !== null) {
+                            if (centerX < prevCenter[0] - 10) {
+                                direction = "Moving Left";
+                            } else if (centerX > prevCenter[0] + 10) {
+                                direction = "Moving Right";
+                            }
+                        }
+                        prevCenter = [centerX, centerY];
+                    }
+                }
+
+                // Display direction
+                document.getElementById('direction').innerText = direction;
+
+                // Show processed frame
+                cv.imshow('canvasOutput', src);
+
+                // Update previous frame
+                prevFrame.delete();
+                prevFrame = gray.clone();
+
+                // Clean up
+                contours.delete();
+                hierarchy.delete();
+
+                requestAnimationFrame(detectMotion);
+            }
+
+            requestAnimationFrame(detectMotion);
+
+            // Clean up on exit
+            window.onunload = () => {
+                src.delete();
+                gray.delete();
+                thresh.delete();
+                if (prevFrame) prevFrame.delete();
+            };
+        }
+    </script>
+</body>
+</html>
