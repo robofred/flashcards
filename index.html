@@ -3,183 +3,63 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Motion Detection with OpenCV.js</title>
+    <title>Post JSON Data</title>
     <style>
-        body {
-            font-family: Arial, sans-serif;
+        #message {
+            margin-top: 20px;
+            padding: 10px;
+            border-radius: 4px;
             text-align: center;
-            background-color: #f0f0f0;
-            margin: 0;
-            padding: 20px;
-        }
-        h1 {
-            color: #333;
-        }
-        #container {
-            position: relative;
-            display: inline-block;
-        }
-        canvas {
-            border: 2px solid #333;
-            max-width: 100%;
-        }
-        #direction {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            color: green;
-            font-size: 20px;
             font-weight: bold;
-            background: rgba(0, 0, 0, 0.5);
-            padding: 5px;
         }
-        #error {
-            color: red;
-            margin-top: 10px;
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
         }
     </style>
 </head>
 <body>
-    <h1>Motion Detection</h1>
-    <p>Move left or right in front of your camera!</p>
-    <div id="container">
-        <canvas id="canvasOutput"></canvas>
-        <div id="direction"></div>
-    </div>
-    <div id="error"></div>
+    <h1>Post JSON Data</h1>
+    <div id="message"></div>
 
-    <!-- JavaScript code before loading OpenCV.js -->
-    <script type="text/javascript">
-        let video;
-        let prevFrame = null;
-        let prevCenter = null;
+    <script>
+        const data = {
+            Item: "John Doe",
+            Quantity: "55",
+            List: "Costco"
+        };
 
-        function onOpenCvError() {
-            console.error("Failed to load OpenCV.js");
-            document.getElementById('error').innerText = "Error: Could not load OpenCV.js. Check your internet connection.";
-        }
+        const url = 'https://script.google.com/macros/s/AKfycbzgAihtXG-nP0C31Ys6PlfDGfOp0LbEWklRh8PSxvwtnkzCaVIEJCDU99lU82j8S2Z1/exec';  // Replace with your API endpoint
 
-        function onOpenCvReady() {
-            console.log('OpenCV.js is ready');
-            document.getElementById('error').innerText = "";
-            startCamera();
-        }
+        const messageDiv = document.getElementById('message');
 
-        function startCamera() {
-            console.log("Starting camera...");
-            video = document.createElement('video');
-            video.width = 320;  // Reduced resolution for better performance
-            video.height = 240;
-            video.autoplay = true;
-
-            navigator.mediaDevices.getUserMedia({ video: true, audio: false })
-                .then(stream => {
-                    console.log("Webcam stream started");
-                    video.srcObject = stream;
-                    video.onloadedmetadata = () => {
-                        video.play();
-                        processVideo();
-                    };
-                })
-                .catch(err => {
-                    console.error("Error accessing webcam: ", err);
-                    document.getElementById('error').innerText = `Error: Could not access webcam - ${err.message}. Allow camera permissions and refresh.`;
-                });
-        }
-
-        function processVideo() {
-            console.log("Processing video...");
-            let canvas = document.getElementById('canvasOutput');
-            let ctx = canvas.getContext('2d');
-            canvas.width = video.width;
-            canvas.height = video.height;
-
-            let src = new cv.Mat(video.height, video.width, cv.CV_8UC4);
-            let gray = new cv.Mat();
-            let thresh = new cv.Mat();
-
-            function detectMotion() {
-                try {
-                    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-                    src.data.set(ctx.getImageData(0, 0, canvas.width, canvas.height).data);
-
-                    cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
-                    cv.GaussianBlur(gray, gray, new cv.Size(21, 21), 0);
-
-                    if (prevFrame === null) {
-                        prevFrame = gray.clone();
-                        requestAnimationFrame(detectMotion);
-                        return;
-                    }
-
-                    cv.absdiff(prevFrame, gray, thresh);
-                    cv.threshold(thresh, thresh, 30, 255, cv.THRESH_BINARY);
-                    cv.dilate(thresh, thresh, new cv.Mat(), new cv.Point(-1, -1), 2);
-
-                    let contours = new cv.MatVector();
-                    let hierarchy = new cv.Mat();
-                    cv.findContours(thresh, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
-
-                    let direction = "";
-                    if (contours.size() > 0) {
-                        let maxContour = contours.get(0);
-                        for (let i = 1; i < contours.size(); i++) {
-                            if (cv.contourArea(contours.get(i)) > cv.contourArea(maxContour)) {
-                                maxContour = contours.get(i);
-                            }
-                        }
-
-                        if (cv.contourArea(maxContour) > 500) {
-                            let moments = cv.moments(maxContour);
-                            let centerX = moments.m10 / moments.m00;
-                            let centerY = moments.m01 / moments.m00;
-
-                            // Fixed: Define rect before using it
-                            let rect = cv.boundingRect(maxContour);
-                            cv.rectangle(src, new cv.Point(rect.x, rect.y), 
-                                        new cv.Point(rect.x + rect.width, rect.y + rect.height), 
-                                        [0, 255, 0, 255], 2);
-                            cv.circle(src, new cv.Point(centerX, centerY), 5, [0, 0, 255, 255], -1);
-
-                            if (prevCenter !== null) {
-                                if (centerX < prevCenter[0] - 10) {
-                                    direction = "Moving Left";
-                                } else if (centerX > prevCenter[0] + 10) {
-                                    direction = "Moving Right";
-                                }
-                            }
-                            prevCenter = [centerX, centerY];
-                        }
-                    }
-
-                    document.getElementById('direction').innerText = direction;
-                    cv.imshow('canvasOutput', src);
-
-                    prevFrame.delete();
-                    prevFrame = gray.clone();
-
-                    contours.delete();
-                    hierarchy.delete();
-                } catch (e) {
-                    console.error("Error in motion detection: ", e);
-                    document.getElementById('error').innerText = `Error: ${e.message}`;
-                }
-
-                requestAnimationFrame(detectMotion);
+        fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(data),
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
             }
-
-            requestAnimationFrame(detectMotion);
-
-            window.onunload = () => {
-                src.delete();
-                gray.delete();
-                thresh.delete();
-                if (prevFrame) prevFrame.delete();
-            };
-        }
+            return response.json(); // Or response.text() if the server returns plain text
+        })
+        .then(result => {
+            messageDiv.textContent = 'Data sent successfully! Response: ' + JSON.stringify(result);
+            messageDiv.className = 'success';
+        })
+        .catch(error => {
+            messageDiv.textContent = 'Error: ' + error.message;
+            messageDiv.className = 'error';
+        });
     </script>
-
-    <!-- Load OpenCV.js from CDN -->
-    <script src="https://docs.opencv.org/4.x/opencv.js" onload="onOpenCvReady();" onerror="onOpenCvError();" type="text/javascript"></script>
 </body>
 </html>
